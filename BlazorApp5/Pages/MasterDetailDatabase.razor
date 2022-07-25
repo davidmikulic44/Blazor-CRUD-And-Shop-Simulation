@@ -1,4 +1,4 @@
-﻿@page "/Database";
+@page "/Database";
 @using BlazorApp5.Model;
 @inject NavigationManager NavigationManager;
 @inject IJSRuntime JS;
@@ -21,7 +21,6 @@
             <PageTitle>Master Detail Database</PageTitle>
 
             <h1 class="display-4">Items & Products</h1>
-
 
             <select class="form-control" id="id" style="width: 100px" onchange="@OnSelectedTableViewOption">
                 <option id="items" value="false">Items</option>
@@ -168,8 +167,8 @@
                         {
                             DateTime thisDay = DateTime.Today;
                             Product product = new Product();
-
                             product.DateOfEntry = thisDay;
+
                             <tr class="table-warning">
                                 <td>#</td>
                                 <td><input class="form-control" type="text" @bind="NameEntered" placeholder="Name"/></td>
@@ -205,14 +204,14 @@
 
                                 else if (EditingId != product.Id)
                                 {
-                                        <tr>
-                                            <td>@product.Id</td>
-                                            <td>@product.ProductName</td>
-                                            <td>@product.ProductDescription</td>
-                                            <td>@product.DateOfEntry</td>
-                                            <td><button class="btn btn-primary" @onclick="() => EditProductClick(product)">Edit</button></td>
-                                            <td><button class="btn btn-danger" @onclick="() => DeleteProduct(product.ProductName, product.Id)">Delete</button></td>
-                                        </tr>
+                                    <tr>
+                                        <td>@product.Id</td>
+                                        <td>@product.ProductName</td>
+                                        <td>@product.ProductDescription</td>
+                                        <td>@product.DateOfEntry</td>
+                                        <td><button class="btn btn-primary" @onclick="() => EditProductClick(product)">Edit</button></td>
+                                        <td><button class="btn btn-danger" @onclick="() => DeleteProduct(product.ProductName, product.Id)">Delete</button></td>
+                                    </tr>
                                 }
                             }
                         }
@@ -343,8 +342,6 @@
         SelectedProduct=SetSelectedProduct();
         counter = 0;
         TableView = !TableView;
-
-
     }
 
     void OnSelectedProductViewOption(ChangeEventArgs e)
@@ -451,7 +448,6 @@
         NotEditedName = product.ProductName;
         NotEditedDescription = product.ProductDescription;
 
-
         counter=0;
         if (IsEditing != true)
             IsEditing = !IsEditing;
@@ -531,32 +527,29 @@
         if(SelectedProduct == -1)
             SelectedProduct = SetSelectedProduct();
     }
+
     [CascadingParameter]
     private Task<AuthenticationState> authenticationStateTask { get; set; }
     string ADMINISTRATION_ROLE = "Administrators";
     System.Security.Claims.ClaimsPrincipal CurrentUser;
+
     protected override async Task OnInitializedAsync()
     {
-        // ensure there is a ADMINISTRATION_ROLE
         var RoleResult = await _RoleManager.FindByNameAsync(ADMINISTRATION_ROLE);
         if (RoleResult == null)
         {
-            // Create ADMINISTRATION_ROLE Role
             await _RoleManager.CreateAsync(new IdentityRole(ADMINISTRATION_ROLE));
         }
-        // Ensure a user named Admin@BlazorHelpWebsite.com is an Administrator
+
         var user = await _UserManager.FindByNameAsync("ed4917@ed4917.com");
         if (user != null)
         {
-            // Is Admin@BlazorHelpWebsite.com in administrator role?
             var UserResult = await _UserManager.IsInRoleAsync(user, ADMINISTRATION_ROLE);
             if (!UserResult)
             {
-                // Put admin in Administrator role
                 await _UserManager.AddToRoleAsync(user, ADMINISTRATION_ROLE);
             }
         }
-        // Get the current logged in user
         CurrentUser = (await authenticationStateTask).User;
 
         GetUsers();
@@ -598,11 +591,11 @@
 
     void GetUsers()
     {
-        // clear any error messages
+
         strError = "";
-        // Collection to hold users
+
         ColUsers = new List<IdentityUser>();
-        // get users from _UserManager
+
         var user = _UserManager.Users.Select(x => new IdentityUser
         {
             Id = x.Id,
