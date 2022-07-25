@@ -1,0 +1,519 @@
+﻿@page "/";
+@using BlazorApp5.Model;
+@inject NavigationManager NavigationManager;
+@inject IJSRuntime JS;
+@inject IMasterDetailDatabaseService MasterDetailDatabaseService;
+@using Microsoft.AspNetCore.Authorization;
+@using Microsoft.AspNetCore.Identity;
+@inject UserManager<IdentityUser> _UserManager
+@inject RoleManager<IdentityRole> _RoleManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Master Detail Database</PageTitle>
+<h1 class="display-4">Shop</h1>
+<AuthorizeView>
+    <NotAuthorized>
+        <p>You aren't logged in.</p>
+    </NotAuthorized>
+    <Authorized>
+
+
+<select class="form-control" id="id" style="width: 100px" onchange="@OnSelectedTableViewOption">
+        <option id="items" value="false">Items</option>
+        <option id="products" value="true">Cart</option>
+</select>
+
+<br />
+
+@if (TableView == false) 
+{
+    
+    CurrentUserEmail=@context.User.Identity.Name;
+
+    <div class="col-2">
+    <label>Choose product:</label>
+    <select class="form-control" id="id" bind="@SelectedProduct" style="width: 110px" onchange="@OnSelectedProductViewOption">
+        @foreach (var product in Products)
+        {
+            if (product.IsDeleted == false)
+            {
+                <option id="productselected" value="@product.Id"> @product.ProductName </option>
+            }
+        }
+        <option id="productSelected" value="0">All products</option>
+    </select> <br />
+    <h5>Total Cost: @Cost HRK</h5>
+    </div>
+    <div class="row">
+    <div class="col">
+    <div class="form-group">
+        <input class="form-control" type="text" placeholder="Search..." @bind="Filter" @bind:event="oninput" style="width: 300px">
+    </div></div>
+    <div class="col"></div>
+    <div class="col"><p>@AddedToCart</p></div>
+    </div>
+    <hr />
+    <div class="row">
+    
+
+        @foreach (var item in Items)
+        {
+            if (!IsItemVisible(item))
+                continue;
+            if ( ((SelectedProduct == item.ProductId) || (SelectedProduct==0)) && (item.IsDeleted==false) )
+            {
+                counter++;
+                <div class="col-sm-3">
+                    <div class="card bg-light" style="width: 18rem;">
+                        <div class="card-header">@item.Name</div>
+                        <img class="card-img-top" src="@item.Image" height="100%" width="auto" alt="Item image">
+                        
+                        <div class="card-footer">
+                            <br />
+                            <div class="row-cols-2">
+                                <h5 class="card-subtitle">@item.Price HRK</h5>
+                                <button class="btn btn-primary" @onclick="() => AddToCart(item.Id, CartId, item.Price, item.Name)">Add to cart</button>
+                            </div>
+
+                            <p>@item.Description</p>
+                        </div>
+                    </div>
+                </div>
+    
+            }
+        }
+
+        @if(counter == 0)
+        {
+            <br /><br />
+            <div class="col-sm-3">
+                <div class="card" style="width: 18rem;">
+                    <div class="card-body">
+                        <h5 class="card-title">No items in stock for this product.</h5>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+else
+{
+    CurrentUserEmail=@context.User.Identity.Name;
+
+    foreach (var cart in Carts)
+    {
+        if (cart.IsPaid == false && cart.TotalCost>0)
+        {
+            <h4>Total Cost: @cart.TotalCost HRK</h4>
+            <button class="btn btn-success" width="30px" @onclick="() => FinishPurchaseSymbol(cart, CurrentUserEmail)">Complete Purchase</button>
+            counter++;
+            break;
+        }
+                
+    }
+
+    <hr />
+    <div class="row">
+        @foreach (var itemCart in ItemCarts)
+        {
+            if (CartId == itemCart.CartId)
+            {
+                foreach (var item in Items)
+                {
+                    if ((item.IsDeleted == false) && (item.Id == itemCart.ItemId))
+                    {
+                        <div class="col-sm-3">
+                            <div class="card" style="width: 18rem;">
+                                <img class="card-img-top" src="@item.Image" height="100%" width="auto" alt="Item image">
+                                <div class="card-body">
+                                    <h5 class="card-title">@item.Name</h5>
+                                    <p class="card-text">@item.Description</p>
+                                    <h5 class="card-subtitle">@item.Price HRK</h5>
+                                    <br />
+                                    <p>Quantity: @itemCart.Quantity</p>
+                                     <button class="btn btn-danger" @onclick="() => DecrementQuantity(itemCart, itemCart.Id, itemCart.Quantity, item.Price)">
+                                         <span class="oi oi-chevron-left" aria-hidden="true"></span>
+                                     </button> <button class="btn btn-primary" @onclick="() => IncrementQuantity(itemCart, itemCart.Id, itemCart.Quantity, item.Price)">
+                                         <span class="oi oi-chevron-right" aria-hidden="true"></span>
+                                     </button>
+                                    <br /> <br />
+                                    <buton class="btn btn-danger" @onclick="() => RemoveItemFromCart(itemCart.Id, item.Price, itemCart.Quantity)">Remove from cart</buton>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+            }
+        }
+        
+         
+         @if (counter == 0)
+         {
+            <div class="col-sm-3">
+                <div class="card" style="width: 18rem;">
+                    <div class="card-body">
+                        <h5 class="card-title">No items in cart.</h5>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (ShowPopup)
+        {
+        <div class="modal" id="modal" tabindex="-1" style="display:block" role="dialog">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h4 class="modal-title">Are you sure you want to complete the purchase of @Cost HRK?</h4>
+                            <button type="button" class="close" @onclick="ClosePopup">
+                                <span aria-hidden="true">X</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col"><p></p></div>
+                            @foreach (var cart in Carts)
+                            {
+                                if (cart.IsPaid == false && cart.TotalCost>0)
+                                {
+                                    <div class="col"><button class="btn btn-success" @onclick="() => FinishPurchase(cart, CurrentUserEmail)" style="width:100px">Yes</button></div>
+                                <div class="col"><button class="btn btn-danger" @onclick="ClosePopup" style="width:100px">No</button></div>
+                                break;
+                                }
+                            }
+                                
+                                <div class="col"><p></p></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+
+    </div>
+
+}
+    </Authorized>
+</AuthorizeView>
+@functions 
+{
+    private string SelectedString;
+
+    void ClosePopup()
+    {
+        ShowPopup = false;
+    }
+
+    void CartModal()
+    {
+        ShowPopup = true;
+    }
+
+    void FinishPurchaseSymbol(Cart cart, string CurrentUserEmail)
+    {
+        ShowPopup = true;
+    }
+
+    void IncrementQuantity(ItemCart itemCart, int id, int quantity, double price)
+    {
+        quantity = itemCart.Quantity;
+        ++quantity;
+        MasterDetailDatabaseService.UpdateItemCart(id, quantity);
+
+        foreach (var cart in Carts)
+        {
+            if (cart.IsPaid == false)
+            {
+                cart.TotalCost += price;
+                cart.TotalCost = Math.Round(cart.TotalCost, 2);
+                Cost += price;
+                MasterDetailDatabaseService.UpdateCart(cart.Id, cart.TotalCost);
+                break;
+            }
+        }
+
+        LoadItemCarts();
+        LoadCarts();
+        LoadItems();
+
+    }
+
+    void DecrementQuantity(ItemCart itemCart, int id, int quantity, double price)
+    {
+        quantity = itemCart.Quantity;
+        --quantity;
+
+        if (quantity != 0){
+            MasterDetailDatabaseService.UpdateItemCart(id, quantity);
+            foreach (var cart in Carts)
+            {
+                if (cart.IsPaid == false)
+                {
+                    cart.TotalCost -= price;
+                    cart.TotalCost = Math.Round(cart.TotalCost, 2);
+                    MasterDetailDatabaseService.UpdateCart(cart.Id, cart.TotalCost);
+                    break;
+                }
+            }
+            LoadItemCarts();
+            LoadCarts();
+            LoadItems();
+        }
+        else
+        {
+            quantity = 1;
+        }
+    }
+
+    void FinishPurchase(Cart cart, string CurrentUserEmail)
+    {
+        ShowPopup = false;
+        MasterDetailDatabaseService.PurchaseCart(cart, CurrentUserEmail);
+        counter = 0;
+        Cart newCart = new Cart();
+        AddedToCart = null;
+        MasterDetailDatabaseService.InsertCart(newCart);
+        CartId = CartIdSetter();
+        LoadCarts();
+        LoadItemCarts();
+        LoadItems();
+    }
+
+    void AddToCart(int ItemId, int CartId, double price, string Name)
+    {
+        Console.WriteLine("cart counter " + cartCounter);
+        foreach (var cart in Carts)
+        {
+            if (cart.IsPaid == false)
+            {
+                cart.TotalCost += price;
+                cart.TotalCost = Math.Round(cart.TotalCost, 2);
+                Cost = cart.TotalCost;
+                Console.WriteLine("Cost: " + Cost);
+                break;
+            }
+        }
+
+        AddedToCart = "Added '"+Name+"' to cart for "+price.ToString()+"HRK.";
+
+        ItemCart itemCart = new ItemCart();
+        itemCart.ItemId = ItemId;
+        itemCart.CartId = CartId;
+        itemCart.Quantity = 1;
+        MasterDetailDatabaseService.InsertItemCart(itemCart);
+        MasterDetailDatabaseService.UpdateCart(CartId, Cost);
+
+    }
+
+    void RemoveItemFromCart(int id, double price, int quantity)
+    {
+        foreach (var cart in Carts)
+        {
+            if (cart.IsPaid == false)
+            {
+                cart.TotalCost -= price * quantity;
+                cart.TotalCost = Math.Round(cart.TotalCost, 2);
+                Cost = cart.TotalCost;
+                break;
+            }
+        }
+        counter--;
+        MasterDetailDatabaseService.UpdateCart(CartId, Cost);
+        MasterDetailDatabaseService.DeleteItemCart(id);
+        LoadItemCarts();
+        LoadCarts();
+    }
+
+    void OnSelectedTableViewOption(ChangeEventArgs e)
+    {
+        SelectedProduct = SetSelectedProduct();
+        LoadItems();
+        LoadItemCarts();
+        counter = 0;
+        TableView = !TableView;
+    }
+
+    void OnSelectedProductViewOption(ChangeEventArgs e)
+    {
+        counter = 0;
+        SelectedString = e.Value.ToString();
+        SelectedProduct = Int32.Parse(SelectedString);
+    }
+}
+
+@code
+{
+    public bool TableView = false;
+    public int counter = 0, ItemsInCart = 0, quantity=1, CartId, cartCounter=0, paidCounter=0;
+    public int SelectedProduct = -1;
+    public int SelectedAdd = 1;
+    public string NameEntered, DescriptionEntered, ProductNameEntered, NewNameEntered, NewDescriptionEntered;
+    public string CurrentUserEmail;
+    public string AddedToCart;
+    double Cost = 0;
+
+    public IEnumerable<Product> Products { get; set; }
+    public IEnumerable<Item> Items { get; set; }
+    public IEnumerable<ItemCart> ItemCarts { get; set; }
+    public IEnumerable<Cart> Carts { get; set; }
+    public string Filter { get; set; }
+
+    IdentityUser objUser = new IdentityUser();
+    string CurrentUserRole { get; set; } = "Users";
+    List<IdentityUser> ColUsers = new List<IdentityUser>();
+    List<string> Options = new List<string>() { "Users", "Administrators" };
+    string strError = "";
+    bool ShowPopup = false;
+    
+
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationStateTask { get; set; }
+    string ADMINISTRATION_ROLE = "Administrators";
+    System.Security.Claims.ClaimsPrincipal CurrentUser;
+    /*protected override async Task OnInitializedAsync()
+    {
+        // ensure there is a ADMINISTRATION_ROLE
+        var RoleResult = await _RoleManager.FindByNameAsync(ADMINISTRATION_ROLE);
+        if (RoleResult == null)
+        {
+            // Create ADMINISTRATION_ROLE Role
+            await _RoleManager.CreateAsync(new IdentityRole(ADMINISTRATION_ROLE));
+        }
+        CurrentUser = (await authenticationStateTask).User;
+
+    }*/
+
+    protected override void OnInitialized()
+    {
+        LoadProducts();
+        LoadItems();
+        if(SelectedProduct==-1)
+            SelectedProduct = SetSelectedProduct();
+
+        LoadItemCarts();
+        LoadCarts();
+
+        CartId = CartIdSetter();
+
+        Console.WriteLine("cartId: "+CartId);
+
+    }
+
+    int CartIdSetter()
+    {
+        LoadItemCarts();
+        LoadCarts();
+        foreach (var cart in Carts)
+        {
+            cartCounter++;
+            if(cart.IsPaid==true)
+                paidCounter++;
+        }
+
+        if (cartCounter == 0)
+        {
+            Cart cart = new Cart();
+            MasterDetailDatabaseService.InsertCart(cart);
+            return 1;
+        }
+        else if (paidCounter == cartCounter)
+        {
+            Cart cart = new Cart();
+            MasterDetailDatabaseService.InsertCart(cart);
+            return cartCounter + 1;
+        }
+        else
+        {
+            foreach (var cart in Carts)
+            {
+                if (cart.IsPaid == false)
+                {
+                    Cost = cart.TotalCost;
+                    return cart.Id;
+                }
+
+            }
+        }
+        return 1;
+    }
+
+    void SortItemsByDate()
+    {
+        Items = Items.OrderByDescending(item => item.DateOfEntry);
+    }
+
+    void SortProductsByDate()
+    {
+        Products = Products.OrderByDescending(product => product.DateOfEntry);
+    }
+
+    void LoadItemCarts()
+    {
+        ItemCarts = MasterDetailDatabaseService.GetItemCarts().ToList();
+    }
+
+    void LoadCarts()
+    {
+        Carts = MasterDetailDatabaseService.GetCarts().ToList();
+    }
+
+    void LoadItems()
+    {
+        Items = MasterDetailDatabaseService.GetItems().ToList();
+        SortItemsByDate();
+    }
+
+    void LoadProducts()
+    {
+        Products = MasterDetailDatabaseService.GetProducts().ToList();
+        SortProductsByDate();
+    }
+
+    int SetSelectedProduct()
+    {
+        foreach (var product in Products)
+        {
+            if (product.IsDeleted == false)
+            {
+                return product.Id;
+            }
+        }
+        return -1;
+    }
+
+    bool IsItemVisible(Item item)
+    {
+        if(string.IsNullOrEmpty(Filter))
+            return true;
+
+        if (item.Name.Contains(Filter, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if(item.Description != null)
+            if (item.Description.Contains(Filter, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+        return false;
+    }
+
+    void GetUsers()
+    {
+        // clear any error messages
+        strError = "";
+        // Collection to hold users
+        ColUsers = new List<IdentityUser>();
+        // get users from _UserManager
+        var user = _UserManager.Users.Select(x => new IdentityUser
+        {
+            Id = x.Id,
+            UserName = x.UserName,
+            Email = x.Email,
+            PasswordHash = "*****"
+        });
+        foreach (var item in user)
+        {
+            ColUsers.Add(item);
+        }
+    }
+}

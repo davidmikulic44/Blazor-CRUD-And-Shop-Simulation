@@ -1,0 +1,400 @@
+﻿@page "/MasterDetailDatabaseDeletedItems";
+@using BlazorApp5.Model;
+@inject NavigationManager NavigationManager;
+@inject IJSRuntime JS;
+@inject IMasterDetailDatabaseService MasterDetailDatabaseService;
+@using Microsoft.AspNetCore.Authorization;
+@using Microsoft.AspNetCore.Identity;
+@inject UserManager<IdentityUser> _UserManager
+@inject RoleManager<IdentityRole> _RoleManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+<PageTitle>Master Detail Database</PageTitle>
+<AuthorizeView>
+    <Authorized>
+    @if (@context.User.IsInRole(ADMINISTRATION_ROLE)) { 
+    <h1 class="display-4">Deleted Items</h1>
+
+        <select class="form-control" id="id" style="width: 100px" onchange="@OnSelectedTableViewOption">
+            <option id="items" value="false">Items</option>
+            <option id="products" value="true">Products</option>
+        </select>
+        <br />
+
+        <div class="form-group">
+            <input class="form-control" type="text" placeholder="Search..." @bind="Filter" @bind:event="oninput" style="width: 300px">
+        </div>
+
+        <br />
+
+@if (TableView == false)
+{
+    <table class="table">
+        <thead class="table-light">
+            <tr>
+                <th scope="col">Item ID</th>
+                <th scope="col">Item Name</th>
+                <th scope="col">Description</th>
+                <th scope="col">Date of entry</th>
+                <th scope="col">
+                    <label>Choose product:</label>
+                    <select class="form-control" id="id" style="width: 110px" onchange="@OnSelectedProductViewOption">
+                        @foreach (var product in Products)
+                        {
+                            if (product.IsDeleted == false)
+                            {
+                                <option id="productselected" value="@product.Id"> @product.ProductName </option>
+                            }
+                        }
+                        <option id="productselected" value="0">All products</option>
+                    </select>
+                </th>
+
+                <th scope="col"></th>
+
+            </tr>
+        </thead>
+
+        <tbody>
+
+            <th scope="row"></th>
+                @foreach (var item in Items)
+                {
+                    if (!IsItemVisible(item))
+                        continue;
+                    if ( ((SelectedProduct == item.ProductId) || (SelectedProduct==0)) && (item.IsDeleted==true) )
+                    {
+                        counter++;
+                        <tr>
+                            <td>@item.Id</td>
+                            <td>@item.Name</td>
+                            <td>@item.Description</td>
+                            <td>@item.DateOfEntry</td>
+                            <td><button class="btn btn-success" @onclick="() => RestoreItem(item.Name,item.Id)">Restore</button></td>
+                            <td></td>
+                        </tr>
+                    }
+                }
+                @if (counter == 0)
+                {
+                    
+
+                foreach (var product in Products)
+                {
+                    if (SelectedProduct == product.Id)
+                        SelectedProductName = product.ProductName;
+                }
+
+                    <tr>
+                        <td>No items deleted from '@SelectedProductName'</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                }
+        </tbody>
+
+    </table>
+}
+else
+{
+    <table class="table">
+        <thead class="table-light">
+            <tr>
+                <th scope="col">Product ID</th>
+                <th scope="col">Product Name</th>
+                <th scope="col">Date of entry</th>
+                <th scope="col"></th>
+                <th scope="col"></th>
+
+            </tr>
+        </thead>
+
+        <tbody>
+
+            <th scope="row"></th>
+
+            @foreach (var product in Products)
+            {
+                if (product.IsDeleted == true)
+                {
+                    if (!IsProductVisible(product))
+                        continue;
+                    counter++;
+
+                    <tr>
+                        <td>@product.Id</td>
+                        <td>@product.ProductName</td>
+                        <td>@product.DateOfEntry</td>
+                        <td><button class="btn btn-success" @onclick="() => RestoreProduct(product.ProductName, product.Id)">Restore</button></td>
+                        <td></td>
+                    </tr>
+                        
+                    
+                }
+            }
+            @if (counter == 0)
+                {
+                    <tr>
+                        <td>No products deleted yet.</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                }
+        </tbody>
+
+    </table>
+        }
+            @if (ShowPopupItem)
+            {
+                <div class="modal" id="modal" tabindex="-1" style="display:block" role="dialog">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h4 class="modal-title">Are you sure you want to restore this item?</h4>
+                            <button type="button" class="close" @onclick="ClosePopup">
+                                <span aria-hidden="true">X</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col"><p></p></div>
+                                <div class="col"><button class="btn btn-success" @onclick="() => RestoreItemClick(ItemIdToBeRestored)" style="width:100px">Yes</button></div>
+                                <div class="col"><button class="btn btn-danger" @onclick="ClosePopup" style="width:100px">No</button></div>
+                                <div class="col"><p></p></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            }
+            @if (ShowPopupProduct)
+            {
+                <div class="modal" id="modal" tabindex="-1" style="display:block" role="dialog">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h4 class="modal-title">Are you sure you want to restore this product?</h4>
+                            <button type="button" class="close" @onclick="ClosePopup">
+                                <span aria-hidden="true">X</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col"><p></p></div>
+                                <div class="col"><button class="btn btn-success" @onclick="() => RestoreProductClick(ProductIdToBeRestored)" style="width:100px">Yes</button></div>
+                                <div class="col"><button class="btn btn-danger" @onclick="ClosePopup" style="width:100px">No</button></div>
+                                <div class="col"><p></p></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            }
+
+        }
+    else
+    {
+        <p>You aren't an administrator.</p>
+    }
+    </Authorized>
+    <NotAuthorized>
+        <p>You aren't logged in.</p>
+    </NotAuthorized>
+</AuthorizeView>
+@functions 
+{
+    private string SelectedString;
+
+    void ClosePopup()
+    {
+        ShowPopupItem = false;
+        ShowPopupProduct = false;
+    }
+
+    void RestoreItem(string Name, int Id)
+    {
+        ShowPopupItem = true;
+        ItemIdToBeRestored = Id;
+    }
+
+    void RestoreProduct(string Name, int Id)
+    {
+        ShowPopupProduct = true;
+        ProductIdToBeRestored = Id;
+    }
+
+
+    async Task RestoreProductSymbol(string Name, int Id)
+    {
+        bool confirmed = await JS.InvokeAsync<bool>("confirm", "Are you sure you want to restore '"+Name+"'?");
+        if (confirmed)
+        {
+            RestoreProductClick(Id);
+        }
+    }
+
+    async Task RestoreItemSymbol(string Name, int Id)
+    {
+        bool confirmed = await JS.InvokeAsync<bool>("confirm", "Are you sure you want to restore '"+Name+"'?");
+        if (confirmed)
+        {
+            RestoreItemClick(Id);
+        }
+    }
+
+    void OnSelectedTableViewOption(ChangeEventArgs e)
+    {
+        SelectedProduct = SetSelectedProduct();
+        LoadItems();
+        counter = 0;
+        TableView = !TableView;
+
+    }
+
+    void OnSelectedProductViewOption(ChangeEventArgs e)
+    {
+        counter = 0;
+        SelectedString = e.Value.ToString();
+        SelectedProduct = Int32.Parse(SelectedString);
+    }
+
+    void RestoreItemClick(int id)
+    {
+        counter = 0;
+        MasterDetailDatabaseService.RestoreItem(id);
+        ShowPopupItem = false;
+    }
+
+    void RestoreProductClick(int id)
+    {
+        counter = 0;
+        MasterDetailDatabaseService.RestoreProduct(id);
+        ShowPopupProduct = false;
+    }
+
+}
+
+@code
+{
+    public bool TableView = false;
+    public int counter = 0;
+    public int SelectedProduct = -1;
+    public int SelectedAdd = 1;
+    public bool ShowPopupItem = false;
+    public bool ShowPopupProduct = false;
+    public int ItemIdToBeRestored, ProductIdToBeRestored;
+    string NameEntered, DescriptionEntered, ProductNameEntered, NewNameEntered, NewDescriptionEntered;
+    string SelectedProductName;
+
+    public IEnumerable<Product> Products { get; set; }
+    public IEnumerable<Item> Items { get; set; }
+    public string Filter { get; set; }
+
+    IdentityUser objUser = new IdentityUser();
+    string CurrentUserRole { get; set; } = "Users";
+    List<IdentityUser> ColUsers = new List<IdentityUser>();
+    List<string> Options = new List<string>() { "Users", "Administrators" };
+    string strError = "";
+    bool ShowPopup = false;
+
+
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationStateTask { get; set; }
+    string ADMINISTRATION_ROLE = "Administrators";
+    System.Security.Claims.ClaimsPrincipal CurrentUser;
+
+    protected override void OnInitialized()
+    {
+        LoadProducts();
+        LoadItems();
+        if(SelectedProduct==-1)
+            SelectedProduct = SetSelectedProduct();
+    }
+
+    void SortItemsByDate()
+    {
+        Items = Items.OrderByDescending(item => item.DateOfEntry);
+    }
+
+    void SortProductsByDate()
+    {
+        Products = Products.OrderByDescending(product => product.DateOfEntry);
+    }
+
+    void LoadItems()
+    {
+        Items = MasterDetailDatabaseService.GetItems().ToList();
+        SortItemsByDate();
+    }
+
+    void LoadProducts()
+    {
+        Products = MasterDetailDatabaseService.GetProducts().ToList();
+        SortProductsByDate();
+    }
+
+    int SetSelectedProduct()
+    {
+        foreach (var product in Products)
+        {
+            if (product.IsDeleted == false)
+            {
+                return product.Id;
+            }
+        }
+        return -1;
+    }
+
+    bool IsItemVisible(Item item)
+    {
+        if(string.IsNullOrEmpty(Filter))
+            return true;
+
+        if (item.Name.Contains(Filter, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if(item.Description != null)
+            if (item.Description.Contains(Filter, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+        if (item.Id.ToString().StartsWith(Filter))
+            return true;
+
+        if (item.Image.Contains(Filter, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (item.Price.ToString().StartsWith(Filter))
+            return true;
+
+        if (item.DateOfEntry.ToString().StartsWith(Filter))
+            return true;
+
+        return false;
+    }
+
+    bool IsProductVisible(Product product)
+    {
+        if(string.IsNullOrEmpty(Filter))
+            return true;
+
+        if(product.ProductName.Contains(Filter, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if(product.ProductDescription != null)
+            if (product.ProductDescription.Contains(Filter, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+        if (product.Id.ToString().StartsWith(Filter))
+            return true;
+
+        if (product.DateOfEntry.ToString().StartsWith(Filter))
+            return true;
+
+        return false;
+    }
+
+}

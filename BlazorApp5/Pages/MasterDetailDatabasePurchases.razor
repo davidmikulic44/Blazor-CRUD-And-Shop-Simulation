@@ -1,0 +1,241 @@
+﻿@page "/purchases"
+@using BlazorApp5.Model;
+@inject NavigationManager NavigationManager;
+@inject IJSRuntime JS;
+@inject IMasterDetailDatabaseService MasterDetailDatabaseService;
+@using Microsoft.AspNetCore.Authorization;
+@using Microsoft.AspNetCore.Identity;
+@inject UserManager<IdentityUser> _UserManager
+@inject RoleManager<IdentityRole> _RoleManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+
+<AuthorizeView>
+    <Authorized>
+        <div class="supreme-container">
+        @if (@context.User.IsInRole(ADMINISTRATION_ROLE))
+        {
+            <h1 class="display-4">Purchases</h1>
+
+            <div class="form-group">
+                <input class="form-control" type="text" placeholder="Search..." @bind="Filter" @bind:event="oninput" style="width: 300px">
+            </div>
+            <br />
+            <table class="table">
+                <thead class="table-light">
+                    <th scope="col">UserID</th>
+                    <th scope="col">Cost</th>
+                    <th scope="col">Date Paid</th>
+                    <th scope="col">ID</th>
+                </thead>
+                <tbody>
+                    @foreach(var cart in Carts)
+                    {
+                        if (cart.IsPaid)
+                        {
+                            if (!IsCartVisible(cart))
+                                continue;
+
+                            <tr>                                
+                                <td>@cart.UserId</td>
+                                <td>@cart.TotalCost HRK</td>
+                                <td>@cart.DatePaid</td>
+                                <td><button class="btn btn-primary" @onclick="() => ShowItems(cart)" style="width: 50px">@cart.Id</button></td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+
+            </table>
+        }
+        else
+        {
+            <h1 class="display-4">Your purchases</h1>
+            CurrentUserEmail=@context.User.Identity.Name;
+
+            <div class="form-group">
+                <input class="form-control" type="text" placeholder="Search by ID" @bind="Filter" @bind:event="oninput" style="width: 300px">
+            </div> <br />
+
+            <table class="table">
+                <thead class="table-light">
+                    <th scope="col">Cost</th>
+                    <th scope="col">Date Paid</th>
+                    <th scope="col">ID</th>
+                </thead>
+                <tbody>
+                    @foreach(var cart in Carts)
+                    {
+                        if (!IsUserCartVisible(cart))
+                                continue;
+                        if (cart.IsPaid && cart.UserId==CurrentUserEmail)
+                        {
+                            <tr>
+                                
+                                <td>@cart.TotalCost HRK</td>
+                                <td>@cart.DatePaid</td>
+                                <td><button class="btn btn-primary" @onclick="() => ShowItems(cart)" style="width: 50px">@cart.Id</button></td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+
+            </table>
+        }
+        @if (ShowPopup)
+        {
+        <div class="modal" id="modal" tabindex="-1" style="display:block" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">Receipt #@ShownCartId</h4>
+
+                    <button type="button" class="close" @onclick="ClosePopup">
+                        <span aria-hidden="true">X</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        @foreach (var itemCart in ItemCarts)
+                        {
+                            if (itemCart.CartId == ShownCartId)
+                            {
+                                foreach (var item in Items)
+                                {
+                                    if (item.Id == itemCart.ItemId)
+                                    {
+                                        <div class="col-sm-4">
+                                        <div class="card"></div>
+                                        <div class="card-header">@item.Name</div>
+                                        <img class="card-img-top" src="@item.Image" height="50%" width="auto" alt="Item image">   
+                                        <div class="card-footer">      
+                                                <h6 class="card-subtitle">@item.Price HRK</h6>
+                                                <br />
+                                                <p>Quantity: @itemCart.Quantity</p>
+                                        </div>
+                                        </div>
+                                        <br />
+                                    }        
+                                }        
+                            }
+                        }
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <div class="row">
+                        <br />
+                        <div class="col"><p>Total: @ShownCartTotalCost HRK</p></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+        }
+    </div>
+    </Authorized>
+
+    <NotAuthorized>
+        <p>You aren't logged in.</p>
+    </NotAuthorized>
+
+
+</AuthorizeView>
+
+
+
+@code {
+    string CurrentUserEmail;
+    public IEnumerable<Cart> Carts { get; set; }
+    public IEnumerable<ItemCart> ItemCarts { get; set; }
+    public IEnumerable<Item> Items { get; set; }
+    public string Filter { get; set; }
+
+
+    int ShownCartId = -1;
+    double ShownCartTotalCost = -1;
+
+    void ShowItems(Cart cart)
+    {
+        ShowPopup = true;
+        ShownCartId = cart.Id;
+        ShownCartTotalCost = cart.TotalCost;
+        
+        LoadCarts();
+        LoadItems();
+        LoadItemCarts();
+    }
+
+    void ClosePopup()
+    {
+        ShowPopup = false;
+    }
+
+    protected override void OnInitialized()
+    {
+        LoadCarts();
+    }
+
+    void LoadCarts()
+    {
+        Carts = MasterDetailDatabaseService.GetCarts().ToList();
+        SortCartsById();
+    }
+
+    void LoadItems()
+    {
+        Items = MasterDetailDatabaseService.GetItems().ToList();
+    }
+
+    void LoadItemCarts()
+    {
+        ItemCarts = MasterDetailDatabaseService.GetItemCarts().ToList();
+    }
+
+    void SortCartsById()
+    {
+        Carts = Carts.OrderByDescending(cart => cart.Id);
+    }
+
+    bool IsCartVisible(Cart cart)
+    {
+        if (string.IsNullOrEmpty(Filter))
+            return true;
+
+        if(cart.UserId.Contains(Filter, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (cart.Id.ToString().StartsWith(Filter))
+            return true;
+
+        if (cart.DatePaid.ToString().StartsWith(Filter))
+            return true;
+
+        return false;
+    }
+
+    bool IsUserCartVisible(Cart cart)
+    {
+        if (string.IsNullOrEmpty(Filter))
+            return true;
+
+        if (cart.Id.ToString().StartsWith(Filter))
+            return true;
+
+        if (cart.DatePaid.ToString().StartsWith(Filter))
+            return true;
+
+        return false;
+    }
+
+    IdentityUser objUser = new IdentityUser();
+    string CurrentUserRole { get; set; } = "Users";
+    List<IdentityUser> ColUsers = new List<IdentityUser>();
+    List<string> Options = new List<string>() { "Users", "Administrators" };
+    string strError = "";
+    bool ShowPopup = false;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationStateTask { get; set; }
+    string ADMINISTRATION_ROLE = "Administrators";
+    System.Security.Claims.ClaimsPrincipal CurrentUser;
+}

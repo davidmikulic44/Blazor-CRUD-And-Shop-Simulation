@@ -1,0 +1,135 @@
+﻿@using Microsoft.AspNetCore.Authorization;
+@using Microsoft.AspNetCore.Identity;
+@inject UserManager<IdentityUser> _UserManager
+@inject RoleManager<IdentityRole> _RoleManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">Shop</a>
+        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass" @onclick="ToggleNavMenu">
+    <nav class="flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="">
+                <span class="oi oi-cart" aria-hidden="true"></span>Shop
+            </NavLink>
+        </div>
+    <AuthorizeView>
+            <Authorized>
+                @if (@context.User.IsInRole(ADMINISTRATION_ROLE))
+                {
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="Administration">
+                            <span class="oi oi-person" aria-hidden="true"></span> Administration
+                        </NavLink>
+                    </div> 
+
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="Purchases">
+                            <span class="oi oi-credit-card" aria-hidden="true"></span>Purchases
+                        </NavLink>
+                    </div>
+
+                    <div class="nav-item px-3">
+
+                    <NavLink class="nav-link" href="Database" Match="NavLinkMatch.All">
+                        <span class="oi oi-list-rich" aria-hidden="true"></span> Items & Products
+                    </NavLink>
+                    </div>        
+                           
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="MasterDetailDatabaseDeletedItems">
+                            <span class="oi oi-trash" aria-hidden="true"></span>Deleted Items
+                        </NavLink>
+                    </div>
+                }
+                else
+                {
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="Purchases">
+                            <span class="oi oi-credit-card" aria-hidden="true"></span>Your purchases
+                        </NavLink>
+                    </div>
+                }
+            </Authorized>
+        </AuthorizeView>
+    </nav>
+</div>
+
+@code {
+    private bool collapseNavMenu = true;
+
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationStateTask { get; set; }
+    string ADMINISTRATION_ROLE = "Administrators";
+    System.Security.Claims.ClaimsPrincipal CurrentUser;
+    protected override async Task OnInitializedAsync()
+    {
+        // ensure there is a ADMINISTRATION_ROLE
+        var RoleResult = await _RoleManager.FindByNameAsync(ADMINISTRATION_ROLE);
+        if (RoleResult == null)
+        {
+            // Create ADMINISTRATION_ROLE Role
+            await _RoleManager.CreateAsync(new IdentityRole(ADMINISTRATION_ROLE));
+        }
+        // Ensure a user named Admin@BlazorHelpWebsite.com is an Administrator
+        var user = await _UserManager.FindByNameAsync("ed4917@ed4917.com");
+        if (user != null)
+        {
+            // Is Admin@BlazorHelpWebsite.com in administrator role?
+            var UserResult = await _UserManager.IsInRoleAsync(user, ADMINISTRATION_ROLE);
+            if (!UserResult)
+            {
+                // Put admin in Administrator role
+                await _UserManager.AddToRoleAsync(user, ADMINISTRATION_ROLE);
+            }
+        }
+        // Get the current logged in user
+        CurrentUser = (await authenticationStateTask).User;
+
+        GetUsers();
+    }
+
+    public void GetUsers()
+    {
+        // clear any error messages
+        strError = "";
+        // Collection to hold users
+        ColUsers = new List<IdentityUser>();
+        // get users from _UserManager
+        var user = _UserManager.Users.Select(x => new IdentityUser
+        {
+            Id = x.Id,
+            UserName = x.UserName,
+            Email = x.Email,
+            PasswordHash = "*****"
+        });
+        foreach (var item in user)
+        {
+            ColUsers.Add(item);
+        }
+    }
+
+    IdentityUser objUser = new IdentityUser();
+    string CurrentUserRole { get; set; } = "Users";
+    List<IdentityUser> ColUsers = new List<IdentityUser>();
+    List<string> Options = new List<string>() { "Users", "Administrators" };
+    string strError = "";
+    bool ShowPopup = false;
+}

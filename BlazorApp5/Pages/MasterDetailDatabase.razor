@@ -1,0 +1,661 @@
+﻿@page "/Database";
+@using BlazorApp5.Model;
+@inject NavigationManager NavigationManager;
+@inject IJSRuntime JS;
+@inject IMasterDetailDatabaseService MasterDetailDatabaseService;   
+@using Microsoft.AspNetCore.Authorization;
+@using Microsoft.AspNetCore.Identity;
+@inject UserManager<IdentityUser> _UserManager
+@inject RoleManager<IdentityRole> _RoleManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@using System 
+@using System.IO
+@using Microsoft.AspNetCore.Hosting
+@using Microsoft.Extensions.Logging
+@inject IWebHostEnvironment Environment
+
+<AuthorizeView>
+    <Authorized>
+        @if (@context.User.IsInRole(ADMINISTRATION_ROLE))
+        {
+            <PageTitle>Master Detail Database</PageTitle>
+
+            <h1 class="display-4">Items & Products</h1>
+
+
+            <select class="form-control" id="id" style="width: 100px" onchange="@OnSelectedTableViewOption">
+                <option id="items" value="false">Items</option>
+                <option id="products" value="true">Products</option>
+            </select>
+
+            <br />
+            <div class="form-group">
+                <input class="form-control" type="text" placeholder="Search..." @bind="Filter" @bind:event="oninput" style="width: 300px">
+            </div>
+            <br />
+            @if (TableView == false)
+            {
+                <table class="table">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col">Item ID</th>
+                            <th scope="col">Item Name</th>
+                            <th scope="col">Description</th>
+                            <th scope="col">Price</th>
+                            <th scope="col">Image path</th>
+                            <th scope="col">Date of entry</th>
+                            <th scope="col">
+                                <label>Choose product:</label>
+                                <select class="form-control" id="id" bind="@SelectedProduct" style="width: 110px" onchange="@OnSelectedProductViewOption">
+
+                                    @foreach (var product in Products)
+                                    {
+                                        if (product.IsDeleted == false)
+                                        {
+                                            <option id="productselected" value="@product.Id"> @product.ProductName </option>
+                                        }
+                                    }
+                                    <option value="0">All products</option>
+                                </select>
+                            </th>
+
+                            <th scope="col">
+                                <button class="btn btn-dark" @onclick="AddNewClick">Add new item</button>
+                            </th>
+
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        <th scope="row"></th>
+
+                        @if (IsAdding == true)
+                        {
+                            DateTime thisDay = DateTime.Today;
+                            Item item = new Item();
+
+                            item.DateOfEntry = thisDay;
+                            <tr class="table-warning">
+                                <td>#</td>
+                                <td><input class="form-control" type="text" @bind="NameEntered" placeholder="Name"/></td>
+                                <td><input class="form-control" type="text" @bind="DescriptionEntered" placeholder="Description"/></td>
+                                <td><input class="form-control" type="number" min="0.01" step="10" @bind="PriceEntered" placeholder="Price" /></td>
+                                <td><input class="form-control" type="text" @bind="PathEntered" placeholer="Image path" /></td>
+                                <td>@item.DateOfEntry</td>
+                                <td><button class="btn btn-success" @onclick="() => AddItemClick(SelectedProduct, NameEntered, 
+                            DescriptionEntered, PathEntered, PriceEntered)">Save</button></td>
+                                <td><button class="btn btn-secondary" @onclick="CancelAddClick">Cancel</button></td>
+                            </tr>
+                        }
+
+                        @foreach (var item in Items)
+                        {
+                            if (!IsItemVisible(item))
+                                continue;
+                            if (((SelectedProduct == item.ProductId) || (SelectedProduct == 0)) && (item.IsDeleted == false))
+                            {
+                                counter++;
+
+                                if ((IsEditing == true) && (EditingId == item.Id))
+                                {
+                                    <tr class="table-warning">
+                                        <td>@item.Id</td>
+                                        <td><input class="form-control" type="text" @bind="item.Name" placeholder="Name"/></td>
+                                        <td><input class="form-control" type="text" @bind="item.Description" placeholder="Description"/></td>
+                                        <td><input class="form-control" type="number" min="0.01" step="10" @bind="item.Price" placeholder="Price"></td>
+                                        <td><input class="form-control form-control" id="formFileSm" width="100px" type="file"></td>
+                                        <td>@item.DateOfEntry</td>
+                                        <td><button class="btn btn-success" @onclick="() => SaveClick(item.Id, item.Name, 
+                                        item.Description, item.Image, item.Price)">Save</button></td>
+                                        <td>
+                                            <button class="btn btn-danger" @onclick="() => DeleteItem(item.Name, item.Id)">Delete</button>
+                                            <button class="btn btn-secondary" @onclick="() => CancelEditClick(item)">Cancel</button>
+                                        </td>
+                                    </tr>
+                                }
+
+                                else if (EditingId != item.Id)
+                                {
+                                    <tr>
+                                        <td>@item.Id</td>
+                                        <td>@item.Name</td>
+                                        <td>@item.Description</td>
+                                        <td>@item.Price HRK</td>
+                                        <td>@item.Image</td>
+                                        <td>@item.DateOfEntry</td>
+                                        <td><button class="btn btn-primary" @onclick="() => EditClick(item)">Edit</button></td>
+                                        <td><button class="btn btn-danger" @onclick="() => DeleteItem(item.Name, item.Id)">Delete</button></td>
+                                    </tr>
+                                }
+                            }
+                        }
+
+                        @if (counter == 0)
+                        {
+                            <tr>
+                                <td>No items in selected category.</td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+                        }
+
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <table class="table">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col">Product ID</th>
+                            <th scope="col">Product Name</th>
+                            <th scope="col">Description</th>
+                            <th scope="col">Date of entry</th>
+                            <th scope="col"></th>
+
+                            <th scope="col">
+                                <button class="btn btn-dark" @onclick="AddNewClick">Add new product</button>
+                            </th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        <th scope="row"></th>
+
+                        @if (IsAdding == true)
+                        {
+                            DateTime thisDay = DateTime.Today;
+                            Product product = new Product();
+
+                            product.DateOfEntry = thisDay;
+                            <tr class="table-warning">
+                                <td>#</td>
+                                <td><input class="form-control" type="text" @bind="NameEntered" placeholder="Name"/></td>
+                                <td><input class="form-control" type="text" @bind="DescriptionEntered" placeholder="Description"/></td>
+                                <td>@product.DateOfEntry</td>
+                                <td><button class="btn btn-success" @onclick="() => AddProductClick(NameEntered, DescriptionEntered)">Save</button></td>
+                                <td><button class="btn btn-secondary" @onclick="CancelAddClick">Cancel</button></td>
+                            </tr>
+                        }
+
+                        @foreach (var product in Products)
+                        {
+                            if (!IsProductVisible(product))
+                                continue;
+                            if (product.IsDeleted == false)
+                            {
+                                counter++;
+                                if ((IsEditing == true) && (EditingId == product.Id))
+                                {
+                                    <tr class="table-warning">
+                                        <td>@product.Id</td>
+                                        <td><input class="form-control" type="text" @bind="product.ProductName" placeholder="Name"/></td>
+                                        <td><input class="form-control" type="text" @bind="product.ProductDescription" placeholder="Description"/></td>
+                                        <td>@product.DateOfEntry</td>
+                                        <td><button class="btn btn-success" @onclick="() => SaveProductClick(product.Id, 
+                                product.ProductName, product.ProductDescription)">Save</button></td>
+                                        <td>
+                                            <button class="btn btn-danger" @onclick="() => DeleteProduct(product.ProductName, product.Id)">Delete</button>
+                                            <button class="btn btn-secondary" @onclick="() => CancelProductEditClick(product)">Cancel</button>
+                                        </td>
+                                    </tr>
+                                }
+
+                                else if (EditingId != product.Id)
+                                {
+                                        <tr>
+                                            <td>@product.Id</td>
+                                            <td>@product.ProductName</td>
+                                            <td>@product.ProductDescription</td>
+                                            <td>@product.DateOfEntry</td>
+                                            <td><button class="btn btn-primary" @onclick="() => EditProductClick(product)">Edit</button></td>
+                                            <td><button class="btn btn-danger" @onclick="() => DeleteProduct(product.ProductName, product.Id)">Delete</button></td>
+                                        </tr>
+                                }
+                            }
+                        }
+                        @if (counter == 0)
+                        {
+                            <tr>
+                                <td>No products created yet.</td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+                        }
+                    </tbody>
+
+                </table>
+            }
+            @if (ShowPopupItem)
+        {
+            <div class="modal" id="modal" tabindex="-1" style="display:block" role="dialog">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h4 class="modal-title">Are you sure you want to delete '@ItemNameToBeDeleted'?</h4>
+                            <button type="button" class="close" @onclick="ClosePopup">
+                                <span aria-hidden="true">X</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col"><p></p></div>
+                                <div class="col"><button class="btn btn-success" @onclick="() => DeleteItemClick(ItemIdToBeDeleted)" style="width:100px">Yes</button></div>
+                                <div class="col"><button class="btn btn-danger" @onclick="ClosePopup" style="width:100px">No</button></div>
+                                <div class="col"><p></p></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (ShowPopupProduct)
+        {
+            <div class="modal" id="modal" tabindex="-1" style="display:block" role="dialog">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h4 class="modal-title">Are you sure you want to delete '@ProductNameToBeDeleted'?</h4>
+                            <button type="button" class="close" @onclick="ClosePopup">
+                                <span aria-hidden="true">X</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col"><p></p></div>
+                                <div class="col"><button class="btn btn-success" @onclick="() => DeleteProductClick(ProductIdToBeDeleted)" style="width:100px">Yes</button></div>
+                                <div class="col"><button class="btn btn-danger" @onclick="ClosePopup" style="width:100px">No</button></div>
+                                <div class="col"><p></p></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        }
+        else
+        {
+            <p>You are not an administrator.</p>
+        }
+
+        
+    </Authorized>
+    <NotAuthorized>
+        <p>You aren't loggged in.</p>
+    </NotAuthorized>
+</AuthorizeView>
+
+@functions 
+{
+    private string SelectedString;
+
+
+    void DeleteItem(string Name, int Id)
+    {
+        ShowPopupItem = true;
+        ItemIdToBeDeleted = Id;
+        ItemNameToBeDeleted = Name;
+    }
+
+    void DeleteProduct(string Name, int Id)
+    {
+        ShowPopupProduct = true;
+        ProductIdToBeDeleted = Id;
+        
+        ProductNameToBeDeleted = Name;
+    }
+
+
+    void ClosePopup()
+    {
+        ShowPopupItem = false;
+        ShowPopupProduct = false;
+    }
+
+    async Task DeleteItemSymbol(string Name, int Id)
+    {
+        bool confirmed = await JS.InvokeAsync<bool>("confirm", "Are you sure you want to delete '"+Name+"'?");
+        if (confirmed)
+        {
+            DeleteItemClick(Id);
+        }
+    }
+
+    async Task DeleteProductSymbol(string Name, int Id)
+    {
+        bool confirmed = await JS.InvokeAsync<bool>("confirm", "Are you sure you want to delete '"+Name+"'?");
+
+        if (confirmed)
+        {
+            DeleteProductClick(Id);
+        }
+    }
+
+    void OnSelectedTableViewOption(ChangeEventArgs e)
+    {
+        LoadProducts();
+        LoadItems();
+        SelectedProduct=SetSelectedProduct();
+        counter = 0;
+        TableView = !TableView;
+
+
+    }
+
+    void OnSelectedProductViewOption(ChangeEventArgs e)
+    {
+        LoadProducts();
+        LoadItems();
+        counter = 0;
+        if (IsEditing == false)
+            IsEditing=!IsEditing;
+        SelectedString = e.Value.ToString();
+        SelectedProduct = Int32.Parse(SelectedString);
+
+    }
+
+    void OnSelectedAddOption(ChangeEventArgs e)
+    {
+        EditingId = 0;
+        SelectedString = e.Value.ToString();
+        SelectedAdd = SelectedString[0] - '0';
+
+    }
+
+    void AddNewClick()
+    {
+        IsAdding = !IsAdding;
+        Console.WriteLine("is adding: " + IsAdding);
+    }
+
+    void CancelAddClick()
+    {
+        counter=0;
+        IsAdding = false;
+    }
+
+    void CancelEditClick(Item item)
+    {
+        counter=0;
+        IsEditing = false;
+        EditingId = -1;
+        MasterDetailDatabaseService.UpdateItem(item.Id, NotEditedName, NotEditedDescription, NotEditedImage, NotEditedPrice);
+    }
+
+    void CancelProductEditClick(Product product)
+    {
+        counter=0;
+        IsEditing = false;
+        EditingId = -1;
+        Console.WriteLine("Not edited name: " + NotEditedName);
+        MasterDetailDatabaseService.UpdateProduct(product.Id, NotEditedName, NotEditedDescription);
+
+    }
+
+
+    void AddProductClick(string NameEntered, string DescriptionEntered)
+    {
+        Product product = new Product();
+        product.ProductName = NameEntered;
+        product.ProductDescription = DescriptionEntered;
+
+        MasterDetailDatabaseService.InsertProduct(product);
+
+        IsAdding=false;
+        IsEditing=false;
+        LoadProducts();
+        EditingId = -1;
+
+    }
+
+    void AddItemClick(int ProductId, string NameEntered, string DescriptionEntered, string PathEntered, double PriceEntered)
+    {
+        Item item = new Item();
+        item.Name = NameEntered;       
+        item.ProductId = ProductId;        
+        item.Description = DescriptionEntered;
+        item.Image = PathEntered;
+        item.Price = PriceEntered;
+
+        MasterDetailDatabaseService.InsertItem(item);
+        counter = 0;
+        this.StateHasChanged();
+        IsAdding = false;
+        LoadItems();
+
+    }
+
+    void SaveClick(int id, string Name, string Description, string Image, double Price)
+    {
+        MasterDetailDatabaseService.UpdateItem(id, Name, Description, Image, Price);
+
+        IsEditing = false;
+        EditingId = -1;
+    }
+
+    void SaveProductClick(int id, string Name, string Description)
+    {
+        MasterDetailDatabaseService.UpdateProduct(id, Name, Description);
+
+        IsEditing = false;
+        EditingId = -1;
+    }
+
+    void EditProductClick(Product product)
+    {
+        NotEditedName = product.ProductName;
+        NotEditedDescription = product.ProductDescription;
+
+
+        counter=0;
+        if (IsEditing != true)
+            IsEditing = !IsEditing;
+        EditingId = product.Id;
+    }
+
+    void EditClick(Item item)
+    {
+        NotEditedName = item.Name;
+        NotEditedDescription = item.Description;
+        NotEditedImage = item.Image;
+        NotEditedPrice = item.Price;
+
+        counter=0;
+        if(IsEditing != true)   
+            IsEditing = !IsEditing;
+        EditingId = item.Id;
+        Console.WriteLine("isEditing: "+IsEditing);
+        Console.WriteLine("editing id: " + item.Id);
+    }
+
+    void DeleteProductClick(int id)
+    {
+        MasterDetailDatabaseService.DeleteProduct(id);
+        counter = 0;
+        LoadProducts();
+
+        if (SelectedProduct == id)
+            SelectedProduct = SetSelectedProduct();
+        LoadItems();
+
+        ClosePopup();
+
+    }
+
+    void DeleteItemClick(int id)
+    {
+        MasterDetailDatabaseService.DeleteItem(id);
+        counter = 0;
+        LoadItems();
+        ClosePopup();
+    }
+
+}
+
+@code
+{
+    public bool IsEditing = false;
+    public bool IsAdding = false;
+    public bool TableView = false;
+    public bool ShowPopupItem = false;
+    public bool ShowPopupProduct = false;
+    public int EditingId = -1;
+    public int counter = 0;
+    public int SelectedProduct = -1;
+    public int SelectedAdd = 1;
+    public int ItemIdToBeDeleted, ProductIdToBeDeleted;
+    public string ItemNameToBeDeleted, ProductNameToBeDeleted;
+    string NameEntered, DescriptionEntered, ProductNameEntered, NewNameEntered, NewDescriptionEntered,PathEntered;
+    string NotEditedName, NotEditedDescription, NotEditedImage;
+    double PriceEntered, NotEditedPrice;
+
+    public IEnumerable<Product> Products { get; set; }
+    public IEnumerable<Item> Items { get; set; }
+    public string Filter { get; set; }
+
+    IdentityUser objUser = new IdentityUser();
+    string CurrentUserRole { get; set; } = "Users";
+    List<IdentityUser> ColUsers = new List<IdentityUser>();
+    List<string> Options = new List<string>() { "Users", "Administrators" };
+    string strError = "";
+
+    protected override void OnInitialized()
+    {
+        LoadProducts();
+        LoadItems();
+        if(SelectedProduct == -1)
+            SelectedProduct = SetSelectedProduct();
+    }
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationStateTask { get; set; }
+    string ADMINISTRATION_ROLE = "Administrators";
+    System.Security.Claims.ClaimsPrincipal CurrentUser;
+    protected override async Task OnInitializedAsync()
+    {
+        // ensure there is a ADMINISTRATION_ROLE
+        var RoleResult = await _RoleManager.FindByNameAsync(ADMINISTRATION_ROLE);
+        if (RoleResult == null)
+        {
+            // Create ADMINISTRATION_ROLE Role
+            await _RoleManager.CreateAsync(new IdentityRole(ADMINISTRATION_ROLE));
+        }
+        // Ensure a user named Admin@BlazorHelpWebsite.com is an Administrator
+        var user = await _UserManager.FindByNameAsync("ed4917@ed4917.com");
+        if (user != null)
+        {
+            // Is Admin@BlazorHelpWebsite.com in administrator role?
+            var UserResult = await _UserManager.IsInRoleAsync(user, ADMINISTRATION_ROLE);
+            if (!UserResult)
+            {
+                // Put admin in Administrator role
+                await _UserManager.AddToRoleAsync(user, ADMINISTRATION_ROLE);
+            }
+        }
+        // Get the current logged in user
+        CurrentUser = (await authenticationStateTask).User;
+
+        GetUsers();
+    }
+
+    void LoadItems()
+    {
+        Items = MasterDetailDatabaseService.GetItems().ToList();
+        SortItemsByDate();
+    }
+
+    void LoadProducts()
+    {
+        Products = MasterDetailDatabaseService.GetProducts().ToList();
+        SortProductsByDate();
+    }
+
+    void SortItemsByDate()
+    {
+        Items = Items.OrderByDescending(item => item.DateOfEntry);
+    }
+
+    void SortProductsByDate()
+    {
+        Products = Products.OrderByDescending(product => product.DateOfEntry);
+    }
+
+    int SetSelectedProduct()
+    {
+        foreach (var product in Products)
+        {
+            if (product.IsDeleted == false)
+            {
+                return product.Id;
+            }
+        }
+        return -1;
+    }
+
+    void GetUsers()
+    {
+        // clear any error messages
+        strError = "";
+        // Collection to hold users
+        ColUsers = new List<IdentityUser>();
+        // get users from _UserManager
+        var user = _UserManager.Users.Select(x => new IdentityUser
+        {
+            Id = x.Id,
+            UserName = x.UserName,
+            Email = x.Email,
+            PasswordHash = "*****"
+        });
+        foreach (var item in user)
+        {
+            ColUsers.Add(item);
+        }
+    }
+
+    bool IsItemVisible(Item item)
+    {
+        if(string.IsNullOrEmpty(Filter))
+            return true;
+
+        if (item.Name.Contains(Filter, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if(item.Description != null)
+            if (item.Description.Contains(Filter, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+        if (item.Id.ToString().StartsWith(Filter))
+            return true;
+
+        if (item.Image.Contains(Filter, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (item.Price.ToString().StartsWith(Filter))
+            return true;
+
+        return false;
+    }
+
+    bool IsProductVisible(Product product)
+    {
+        if(string.IsNullOrEmpty(Filter))
+            return true;
+
+        if(product.ProductName.Contains(Filter, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if(product.ProductDescription != null)
+            if (product.ProductDescription.Contains(Filter, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+        if (product.Id.ToString().StartsWith(Filter))
+            return true;
+
+        return false;
+    }
+
+}
