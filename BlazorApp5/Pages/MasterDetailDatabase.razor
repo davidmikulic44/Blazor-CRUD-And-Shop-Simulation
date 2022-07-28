@@ -1,5 +1,6 @@
 @page "/Database";
 @using BlazorApp5.Model;
+@using static BlazorApp5.Model.IMasterDetailDatabaseService;
 @inject NavigationManager NavigationManager;
 @inject IJSRuntime JS;
 @inject IMasterDetailDatabaseService MasterDetailDatabaseService;   
@@ -8,11 +9,17 @@
 @inject UserManager<IdentityUser> _UserManager
 @inject RoleManager<IdentityRole> _RoleManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
-@using System 
+@using System
 @using System.IO
 @using Microsoft.AspNetCore.Hosting
 @using Microsoft.Extensions.Logging
 @inject IWebHostEnvironment Environment
+@inject IFileUpload fileUpload
+
+@if (file != null)
+{
+    <p>@file.Name</p>    
+}
 
 <AuthorizeView>
     <Authorized>
@@ -61,7 +68,6 @@
                             <th scope="col">
                                 <button class="btn btn-dark" @onclick="AddNewClick">Add new item</button>
                             </th>
-
                         </tr>
                     </thead>
 
@@ -79,10 +85,11 @@
                                 <td><input class="form-control" type="text" @bind="NameEntered" placeholder="Name"/></td>
                                 <td><input class="form-control" type="text" @bind="DescriptionEntered" placeholder="Description"/></td>
                                 <td><input class="form-control" type="number" min="0.01" step="10" @bind="PriceEntered" placeholder="Price" /></td>
-                                <td><input class="form-control" type="text" @bind="PathEntered" placeholer="Image path" /></td>
+                                <td><input class="form-control" type="file" onchange="@HandleFileSelected" placeholer="Image path" />  
+                                </td>
                                 <td>@item.DateOfEntry</td>
                                 <td><button class="btn btn-success" @onclick="() => AddItemClick(SelectedProduct, NameEntered, 
-                            DescriptionEntered, PathEntered, PriceEntered)">Save</button></td>
+                                    DescriptionEntered, PathEntered, PriceEntered)">Save</button></td>
                                 <td><button class="btn btn-secondary" @onclick="CancelAddClick">Cancel</button></td>
                             </tr>
                         }
@@ -94,7 +101,6 @@
                             if (((SelectedProduct == item.ProductId) || (SelectedProduct == 0)) && (item.IsDeleted == false))
                             {
                                 counter++;
-
                                 if ((IsEditing == true) && (EditingId == item.Id))
                                 {
                                     <tr class="table-warning">
@@ -102,7 +108,7 @@
                                         <td><input class="form-control" type="text" @bind="item.Name" placeholder="Name"/></td>
                                         <td><input class="form-control" type="text" @bind="item.Description" placeholder="Description"/></td>
                                         <td><input class="form-control" type="number" min="0.01" step="10" @bind="item.Price" placeholder="Price"></td>
-                                        <td><input class="form-control form-control" id="formFileSm" width="100px" type="file"></td>
+                                        <td><input class="form-control" type="file" onchange="@HandleFileSelected" placeholer="Image path" /></td>
                                         <td>@item.DateOfEntry</td>
                                         <td><button class="btn btn-success" @onclick="() => SaveClick(item.Id, item.Name, 
                                         item.Description, item.Image, item.Price)">Save</button></td>
@@ -139,10 +145,10 @@
                                 <td></td>
                             </tr>
                         }
-
                     </tbody>
                 </table>
             }
+
             else
             {
                 <table class="table">
@@ -153,7 +159,6 @@
                             <th scope="col">Description</th>
                             <th scope="col">Date of entry</th>
                             <th scope="col"></th>
-
                             <th scope="col">
                                 <button class="btn btn-dark" @onclick="AddNewClick">Add new product</button>
                             </th>
@@ -226,11 +231,10 @@
                             </tr>
                         }
                     </tbody>
-
                 </table>
             }
             @if (ShowPopupItem)
-        {
+            {
             <div class="modal" id="modal" tabindex="-1" style="display:block" role="dialog">
                 <div class="modal-dialog">
                     <div class="modal-content">
@@ -251,31 +255,31 @@
                     </div>
                 </div>
             </div>
-        }
+            }
 
-        @if (ShowPopupProduct)
-        {
-            <div class="modal" id="modal" tabindex="-1" style="display:block" role="dialog">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h4 class="modal-title">Are you sure you want to delete '@ProductNameToBeDeleted'?</h4>
-                            <button type="button" class="close" @onclick="ClosePopup">
-                                <span aria-hidden="true">X</span>
-                            </button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="row">
-                                <div class="col"><p></p></div>
-                                <div class="col"><button class="btn btn-success" @onclick="() => DeleteProductClick(ProductIdToBeDeleted)" style="width:100px">Yes</button></div>
-                                <div class="col"><button class="btn btn-danger" @onclick="ClosePopup" style="width:100px">No</button></div>
-                                <div class="col"><p></p></div>
+            @if (ShowPopupProduct)
+            {
+                <div class="modal" id="modal" tabindex="-1" style="display:block" role="dialog">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h4 class="modal-title">Are you sure you want to delete '@ProductNameToBeDeleted'?</h4>
+                                <button type="button" class="close" @onclick="ClosePopup">
+                                    <span aria-hidden="true">X</span>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="row">
+                                    <div class="col"><p></p></div>
+                                    <div class="col"><button class="btn btn-success" @onclick="() => DeleteProductClick(ProductIdToBeDeleted)" style="width:100px">Yes</button></div>
+                                    <div class="col"><button class="btn btn-danger" @onclick="ClosePopup" style="width:100px">No</button></div>
+                                    <div class="col"><p></p></div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        }
+            }
         }
         else
         {
@@ -292,7 +296,19 @@
 @functions 
 {
     private string SelectedString;
+    IFileListEntry file;
 
+    async Task HandleFileSelected(IFileListEntry[] files)
+    {
+        file = files.FirstOrDefault();
+
+        if (file != null)
+        {
+            Console.WriteLine("upload");
+            await fileUpload.Upload(file);
+        }
+
+    }
 
     void DeleteItem(string Name, int Id)
     {
@@ -509,7 +525,7 @@
     string NameEntered, DescriptionEntered, ProductNameEntered, NewNameEntered, NewDescriptionEntered,PathEntered;
     string NotEditedName, NotEditedDescription, NotEditedImage;
     double PriceEntered, NotEditedPrice;
-
+    
     public IEnumerable<Product> Products { get; set; }
     public IEnumerable<Item> Items { get; set; }
     public string Filter { get; set; }
@@ -535,7 +551,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var RoleResult = await _RoleManager.FindByNameAsync(ADMINISTRATION_ROLE);
+        /*var RoleResult = await _RoleManager.FindByNameAsync(ADMINISTRATION_ROLE);
         if (RoleResult == null)
         {
             await _RoleManager.CreateAsync(new IdentityRole(ADMINISTRATION_ROLE));
@@ -549,7 +565,7 @@
             {
                 await _UserManager.AddToRoleAsync(user, ADMINISTRATION_ROLE);
             }
-        }
+        }*/
         CurrentUser = (await authenticationStateTask).User;
 
         GetUsers();
