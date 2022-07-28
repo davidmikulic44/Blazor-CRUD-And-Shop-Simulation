@@ -1,4 +1,4 @@
-﻿@page "/purchases"
+@page "/purchases"
 @using BlazorApp5.Model;
 @inject NavigationManager NavigationManager;
 @inject IJSRuntime JS;
@@ -8,7 +8,6 @@
 @inject UserManager<IdentityUser> _UserManager
 @inject RoleManager<IdentityRole> _RoleManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
-
 
 <AuthorizeView>
     <Authorized>
@@ -35,7 +34,6 @@
                         {
                             if (!IsCartVisible(cart))
                                 continue;
-
                             <tr>                                
                                 <td>@cart.UserId</td>
                                 <td>@cart.TotalCost HRK</td>
@@ -45,7 +43,6 @@
                         }
                     }
                 </tbody>
-
             </table>
         }
         else
@@ -79,7 +76,6 @@
                         }
                     }
                 </tbody>
-
             </table>
         }
         @if (ShowPopup)
@@ -93,6 +89,7 @@
                     <button type="button" class="close" @onclick="ClosePopup">
                         <span aria-hidden="true">X</span>
                     </button>
+
                 </div>
                 <div class="modal-body">
                     <div class="row">
@@ -104,17 +101,23 @@
                                 {
                                     if (item.Id == itemCart.ItemId)
                                     {
+                                        counter++;
                                         <div class="col-sm-4">
-                                        <div class="card"></div>
+                                        <div class="card">
                                         <div class="card-header">@item.Name</div>
                                         <img class="card-img-top" src="@item.Image" height="50%" width="auto" alt="Item image">   
                                         <div class="card-footer">      
                                                 <h6 class="card-subtitle">@item.Price HRK</h6>
                                                 <br />
                                                 <p>Quantity: @itemCart.Quantity</p>
+                                                </div>
                                         </div>
                                         </div>
-                                        <br />
+                                        @if (counter % 3 == 0)
+                                        {
+
+                                            <hr />
+                                        }
                                     }        
                                 }        
                             }
@@ -138,7 +141,6 @@
         <p>You aren't logged in.</p>
     </NotAuthorized>
 
-
 </AuthorizeView>
 
 
@@ -149,7 +151,7 @@
     public IEnumerable<ItemCart> ItemCarts { get; set; }
     public IEnumerable<Item> Items { get; set; }
     public string Filter { get; set; }
-
+    public int counter = 0;
 
     int ShownCartId = -1;
     double ShownCartTotalCost = -1;
@@ -159,7 +161,7 @@
         ShowPopup = true;
         ShownCartId = cart.Id;
         ShownCartTotalCost = cart.TotalCost;
-        
+
         LoadCarts();
         LoadItems();
         LoadItemCarts();
@@ -168,6 +170,7 @@
     void ClosePopup()
     {
         ShowPopup = false;
+        counter = 0;
     }
 
     protected override void OnInitialized()
