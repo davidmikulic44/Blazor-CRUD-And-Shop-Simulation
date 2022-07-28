@@ -1,4 +1,4 @@
-﻿@page "/administration"
+@page "/administration"
 @using Microsoft.AspNetCore.Authorization;
 @using Microsoft.AspNetCore.Identity;
 @inject UserManager<IdentityUser> _UserManager
@@ -25,28 +25,14 @@
                 <tbody>
                     @foreach (var user in ColUsers)
                     {
-
                         @if (!IsUserVisible(user))
-                        {
-                             
                              continue;
-                             
-                        }
-
 
                         <tr>
                             <td>@user.UserName</td>
                             <td>@user.Email</td>
                             <td>
-                                <!-- Edit the current forecast -->
-                                <button class="btn btn-primary"
-                                        @onclick="() => EditUser(user)">
-                                    Edit
-                                </button>
-                                <button class="btn btn-danger"
-                                    @onclick="DeleteUser">
-                                Delete
-                            </button>
+                                <button class="btn btn-primary"@onclick="() => EditUser(user)">Edit</button>
                             </td>
                         </tr>
                     }
@@ -54,79 +40,61 @@
             </table>
 
             @if (ShowPopup)
-{
-    <!-- This is the popup to create or edit a user -->
-    <div class="modal" tabindex="-1" style="display:block" role="dialog">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3 class="modal-title">Edit User</h3>
-                    <!-- Button to close the popup -->
-                    <button type="button" class="close"
-                            @onclick="ClosePopup">
-                        <span aria-hidden="true">X</span>
-                    </button>
-                </div>
-                <!-- Edit form for the current user -->
-                <div class="modal-body">
-                    <!-- Only show Id if not a new user -->
-                    @if (objUser.Id != "")
-                    {
-                        <p>@objUser.Id</p>
-                    }
-                    <!-- Only allow edit if a new user -->
-                    @if (objUser.Id != "")
-                    {
-                        <p>@objUser.UserName</p>
-                    }
-                    else
-                    {
-                        <input class="form-control" type="text"
-                                placeholder="UserName"
-                                @bind="objUser.UserName" />
-                    }
-                    <input class="form-control" type="text"
-                            placeholder="Email"
-                            @bind="objUser.Email" />
-                    <input class="form-control" type="password"
-                            placeholder="Password"
-                            @bind="objUser.PasswordHash" />
-                    <select class="form-control"
-                            @bind="@CurrentUserRole">
-                        @foreach (var option in Options)
-                        {
-                            <option value="@option">
-                                @option
-                            </option>
-                        }
-                    </select>
-                    <br /><br />
-                    <!-- Button to save the user -->
-                    <button class="btn btn-primary"
-                            @onclick="SaveUser">
-                        Save
-                    </button>
-                    <!-- Only show delete button if not a new record -->
-                    @if (objUser.Id != "")
-                    {
-                        <!-- Button to delete the forecast -->
-                        <button class="btn btn-danger"
-                                @onclick="DeleteUser">
-                            Delete
-                        </button>
-                    }
-                    <br />
-                    <span style="color:red">@strError</span>
+            {
+            <div class="modal" tabindex="-1" style="display:block" role="dialog">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3 class="modal-title">Edit User</h3>
+
+                            <button type="button" class="close" @onclick="ClosePopup">
+                                <span aria-hidden="true">X</span>
+                            </button>
+
+                        </div>
+                        <div class="modal-body">
+                           
+                            @if (objUser.Id != "")
+                            {
+                                <p>@objUser.Id</p>
+                            }
+                            
+                            @if (objUser.Id != "")
+                            {
+                                <p>@objUser.UserName</p>
+                            }
+                            else
+                            {
+                                <input class="form-control" type="text" placeholder="UserName" @bind="objUser.UserName" />
+                            }
+                            <input class="form-control" type="text" placeholder="Email" @bind="objUser.Email" />
+                            <input class="form-control" type="password" placeholder="Password" @bind="objUser.PasswordHash" />
+                            <select class="form-control" @bind="@CurrentUserRole">
+                                @foreach (var option in Options)
+                                {
+                                    <option value="@option">@option</option>
+                                }
+                            </select>
+                            <br /><br />
+                            
+                            <button class="btn btn-primary"@onclick="SaveUser">Save</button>
+                            
+                            @if (objUser.Id != "")
+                            {
+                                <button class="btn btn-danger" @onclick="DeleteUser">Delete</button>
+                            }
+                            <br />
+                            <span style="color:red">@strError</span>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
             }
 
         }
         else
         {
-            <p>You're not signed in as a user in @ADMINISTRATION_ROLE.</p>
+            <p>You are not an administrator.</p>
         }
     </Authorized>
     <NotAuthorized>
@@ -143,25 +111,6 @@
     System.Security.Claims.ClaimsPrincipal CurrentUser;
     protected override async Task OnInitializedAsync()
     {
-        // ensure there is a ADMINISTRATION_ROLE
-        /*var RoleResult = await _RoleManager.FindByNameAsync(ADMINISTRATION_ROLE);
-        if (RoleResult == null)
-        {
-            // Create ADMINISTRATION_ROLE Role
-            await _RoleManager.CreateAsync(new IdentityRole(ADMINISTRATION_ROLE));
-        }
-        // Ensure a user named Admin@BlazorHelpWebsite.com is an Administrator
-        var user = await _UserManager.FindByNameAsync("ed4917@ed4917.com");
-            if (user != null)
-            {
-            // Is Admin@BlazorHelpWebsite.com in administrator role?
-            var UserResult = await _UserManager.IsInRoleAsync(user, ADMINISTRATION_ROLE);
-                if (!UserResult)
-                {
-                await _UserManager.AddToRoleAsync(user, ADMINISTRATION_ROLE);
-        }
-        }*/
-        // Get the current logged in user
         CurrentUser = (await authenticationStateTask).User;
 
         GetUsers();
@@ -184,131 +133,100 @@
 
     void AddNewUser()
     {
-        // Make new user
+        
         objUser = new IdentityUser();
         objUser.PasswordHash = "*****";
-        // Set Id to blank so we know it is a new record
+        
         objUser.Id = "";
-        // Open the Popup
+        
         ShowPopup = true;
     }
     async Task SaveUser()
     {
         try
         {
-            // Is this an existing user?
+            
             if (objUser.Id != "")
             {
-                // Get the user
+                
                 var user = await _UserManager.FindByIdAsync(objUser.Id);
-                // Update Email
+                
                 user.Email = objUser.Email;
-                // Update the user
+                
                 await _UserManager.UpdateAsync(user);
-                // Only update password if the current value
-                // is not the default value
+                
+                
                 if (objUser.PasswordHash != "*****")
                 {
-                    var resetToken = 
-                        await _UserManager.GeneratePasswordResetTokenAsync(user);
-                    var passworduser = 
-                        await _UserManager.ResetPasswordAsync(
-                            user, 
-                            resetToken, 
-                            objUser.PasswordHash);
+                    var resetToken = await _UserManager.GeneratePasswordResetTokenAsync(user);
+                    var passworduser = await _UserManager.ResetPasswordAsync(user, resetToken, objUser.PasswordHash);
                     if (!passworduser.Succeeded)
                     {
                         if (passworduser.Errors.FirstOrDefault() != null)
                         {
-                            strError = 
-                                passworduser
-                                .Errors
-                                .FirstOrDefault()
-                                .Description;
+                            strError = passworduser.Errors.FirstOrDefault().Description;
                         }
                         else
                         {
                             strError = "Pasword error";
                         }
-                        // Keep the popup opened
+                        
                         return;
                     }
                 }
-                // Handle Roles
-                // Is user in administrator role?
-                var UserResult = 
-                    await _UserManager
-                    .IsInRoleAsync(user, ADMINISTRATION_ROLE);
-                // Is Administrator role selected 
-                // but user is not an Administrator?
-                if (
-                    (CurrentUserRole == ADMINISTRATION_ROLE) 
-                    & 
-                    (!UserResult))
+                
+                
+                var UserResult = await _UserManager.IsInRoleAsync(user, ADMINISTRATION_ROLE);
+
+                if ((CurrentUserRole == ADMINISTRATION_ROLE) & (!UserResult))
                 {
-                    // Put admin in Administrator role
-                    await _UserManager
-                        .AddToRoleAsync(user, ADMINISTRATION_ROLE);
+                    
+                    await _UserManager.AddToRoleAsync(user, ADMINISTRATION_ROLE);
                 }
                 else
                 {
-                    // Is Administrator role not selected 
-                    // but user is an Administrator?
-                    if ((CurrentUserRole != ADMINISTRATION_ROLE) 
-                        & 
-                        (UserResult))
+                    
+                    
+                    if ((CurrentUserRole != ADMINISTRATION_ROLE) & (UserResult))
                     {
-                        // Remove user from Administrator role
-                        await _UserManager
-                            .RemoveFromRoleAsync(user, ADMINISTRATION_ROLE);
+                        await _UserManager.RemoveFromRoleAsync(user, ADMINISTRATION_ROLE);
                     }
                 }
             }
             else
             {
-                // Insert new user
-                var NewUser =
-                    new IdentityUser
+                var NewUser = new IdentityUser
                     {
                         UserName = objUser.UserName,
                         Email = objUser.Email
                     };
-                var CreateResult =
-                    await _UserManager
-                    .CreateAsync(NewUser, objUser.PasswordHash);
+                var CreateResult = await _UserManager.CreateAsync(NewUser, objUser.PasswordHash);
                 if (!CreateResult.Succeeded)
                 {
-                    if (CreateResult
-                        .Errors
-                        .FirstOrDefault() != null)
+                    if (CreateResult.Errors.FirstOrDefault() != null)
                     {
-                        strError =
-                            CreateResult
-                            .Errors
-                            .FirstOrDefault()
-                            .Description;
+                        strError = CreateResult.Errors.FirstOrDefault().Description;
                     }
                     else
                     {
                         strError = "Create error";
                     }
-                    // Keep the popup opened
+                    
                     return;
                 }
                 else
                 {
-                    // Handle Roles
+                    
                     if (CurrentUserRole == ADMINISTRATION_ROLE)
                     {
-                        // Put admin in Administrator role
-                        await _UserManager
-                            .AddToRoleAsync(NewUser, ADMINISTRATION_ROLE);
+                        
+                        await _UserManager.AddToRoleAsync(NewUser, ADMINISTRATION_ROLE);
                     }
                 }
             }
-            // Close the Popup
+            
             ShowPopup = false;
-            // Refresh Users
+            
             GetUsers();
         }
         catch (Exception ex)
@@ -318,17 +236,12 @@
     }
     async Task EditUser(IdentityUser _IdentityUser)
     {
-        // Set the selected user
-        // as the current user
         objUser = _IdentityUser;
-        // Get the user
+        
         var user = await _UserManager.FindByIdAsync(objUser.Id);
         if (user != null)
         {
-            // Is user in administrator role?
-            var UserResult =
-                await _UserManager
-                .IsInRoleAsync(user, ADMINISTRATION_ROLE);
+            var UserResult = await _UserManager.IsInRoleAsync(user, ADMINISTRATION_ROLE);
             if (UserResult)
             {
                 CurrentUserRole = ADMINISTRATION_ROLE;
@@ -338,34 +251,33 @@
                 CurrentUserRole = "Users";
             }
         }
-        // Open the Popup
+        
         ShowPopup = true;
-
     }
     async Task DeleteUser()
     {
         var user = await _UserManager.FindByIdAsync(objUser.Id);
         if (user != null)
         {
-            // Delete the user
+            
             await _UserManager.DeleteAsync(user);
         }
-        // Refresh Users
+        
         GetUsers();
     }
     void ClosePopup()
     {
-        // Close the Popup
+        
         ShowPopup = false;
     }
 
     public void GetUsers()
     {
-        // clear any error messages
+        
         strError = "";
-        // Collection to hold users
+        
         ColUsers = new List<IdentityUser>();
-        // get users from _UserManager
+        
         var user = _UserManager.Users.Select(x => new IdentityUser
         {
             Id = x.Id,
