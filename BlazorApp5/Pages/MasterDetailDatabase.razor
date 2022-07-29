@@ -16,11 +16,6 @@
 @inject IWebHostEnvironment Environment
 @inject IFileUpload fileUpload
 
-@if (file != null)
-{
-    <p>@file.Name</p>    
-}
-
 <AuthorizeView>
     <Authorized>
         @if (@context.User.IsInRole(ADMINISTRATION_ROLE))
